@@ -1,0 +1,16 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="@dimen/_35sdp"
+    android:gravity="center_vertical">
+
+    <Button
+        android:id="@+id/bt_dev_entry_button"
+        android:layout_width="@dimen/_250sdp"
+        android:layout_height="@dimen/_50sdp"
+        android:layout_gravity="center"
+        android:backgroundTint="@color/dark_blue"
+        android:textSize="@dimen/_20sdp"
+        android:fontFamily="@font/roboto_bold"
+        android:textAlignment="center"
+        android:textColor="@color/white" />
+</FrameLayout>

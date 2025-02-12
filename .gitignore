@@ -1,0 +1,16 @@
+.venv
+WhaleDetectorApp/*.iml
+WhaleDetectorApp/.gradle
+WhaleDetectorApp/local.properties
+WhaleDetectorApp/.idea/caches
+WhaleDetectorApp/.idea/libraries
+WhaleDetectorApp/.idea/modules.xml
+WhaleDetectorApp/.idea/workspace.xml
+WhaleDetectorApp/.idea/navEditor.xml
+WhaleDetectorApp/.idea/assetWizardSettings.xml
+WhaleDetectorApp/.DS_Store
+WhaleDetectorApp/build
+WhaleDetectorApp/captures
+WhaleDetectorApp/.externalNativeBuild
+WhaleDetectorApp/.cxx
+WhaleDetectorApp/local.properties
