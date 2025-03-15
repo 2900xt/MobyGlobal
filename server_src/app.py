@@ -74,6 +74,7 @@ def retrieve_list():
     except:
         return jsonify({'error': 'Invalid Query'}), 400
 
+
 def store_probability(probability, sensor_name):
     fname = f'./data/{sensor_name}_data.csv'
     data = {

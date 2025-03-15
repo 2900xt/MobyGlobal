@@ -3,11 +3,9 @@ import threading
 import datetime
 import queue
 import time
-import torch
 import requests
 import json
 import numpy as np
-import torch.nn as nn
 import sounddevice as sd
 from flask import Flask, jsonify, request
 
@@ -107,14 +105,13 @@ def send_to_server_thread():
             continue
 
         audio_data = output_queue.get()
-        send_value(get_melspectrogram(audio_data).tolist())
+        get_melspectrogram(audio_data).tolist()
         log('Sent data to server')
-
 
 
 log('Whale Audio Detector Client 1.0')
 
-register_dev()
+#register_dev()
 send_thread1 = threading.Thread(target=send_to_server_thread)
 send_thread1.start()
 
