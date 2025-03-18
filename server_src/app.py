@@ -1,4 +1,6 @@
-from flask import Flask, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
+import folium
+import os
 import numpy as np
 import json
 import csv
@@ -16,6 +18,10 @@ def log(msg):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"[{timestamp}] {msg}")
 
+@app.route('/')
+def index():
+    return render_template('map.html')
+
 
 @app.route('/update', methods=['POST'])
 def update_data():
@@ -32,8 +38,8 @@ def update_data():
         dev_name = str(data.get('name'))
         prob = set_probabillity(new_spectogram, dev_name)
 
-        if prob > 0.5:
-            requests.post("http://127.0.0.0:5001/add_event", json={"lat": 39.042388, "long": -77.550108})
+        # Update the map with the new data
+        update_map()
 
         return jsonify({'message': f'Data updated successfully. P(whale) = {prob}'}), 200
     except Exception as e:
@@ -116,13 +122,69 @@ def set_probabillity(mel_spectrogram_dB, dev_name):
     prob = min(random.uniform(0.95, 1.0), prob*10)
     
     log(f'{prob*100:.6f}% whale at {dev_name}')
-    values[dev_name]['prob'] = prob
+    values[dev_name]['prob'] = max(prob, values[dev_name]['prob']*0.8)
     values[dev_name]['last_upd'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     store_probability(float(prob), dev_name)
     return prob
+
+@app.route('/update_map')
+def update_map_route():
+    try:
+        return jsonify({'message': 'Map updated successfully'}), 200
+    except Exception as e:
+        log(f'Error in update_map_route: {e}')
+        return jsonify({'error': 'Invalid Query'}), 400
+
+
+def update_map():
+    # Initialize the map centered globally
+    map = folium.Map(location=[38.931, -77.566], zoom_start=8)
+
+    # Add all events as ripples on the map
+    for sensor in values.keys():
+        loc = values[sensor]['location']
+        lat = float(loc.split(",")[0])
+        long = float(loc.split(",")[1])
+        prob = values[sensor]['prob']
+        print(f"Adding {sensor} to map at {lat}, {long} with probability {prob}")
+
+        event = (float(lat), float(long))
+        if prob > 0.1:
+            folium.Circle(
+                location=(event[0], event[1]),
+                radius=14484,  # Radius in meters
+                color='blue',
+                outline=False,
+                fill=True,
+                fill_opacity=float(prob)
+            ).add_to(map)
+
+    # Add a marker for each sensor
+    for sensor in values.keys():
+        loc = values[sensor]['location']
+        lat = float(loc.split(",")[0])
+        long = float(loc.split(",")[1])
+        prob = values[sensor]['prob']
+        print(f"Adding {sensor} to map at {lat}, {long} with probability {prob}")
+
+        folium.Marker(
+            location=(lat, long),
+            popup=f"{sensor}: {prob:.2f}",
+            icon=folium.Icon(color='blue', icon='info-sign')
+        ).add_to(map)
+
+    if not os.path.exists('static'):
+        os.makedirs('static')
+    map_path = 'static/ripple_map.html'
+    map.save(map_path)
 
 if __name__ == '__main__':
     model_path = '/home/taha/rsef2025/whale_detector/Moby5.h5'
     model = load_model(model_path)
     log(f"Using Moby5.h5")
+    # copy and override /static/ripple_map.html with /static/og_ripple_map.html
+    if os.path.exists('static/og_ripple_map.html'):
+        os.remove('static/ripple_map.html')
+        #copy not move
+        os.system('cp static/og_ripple_map.html static/ripple_map.html')
     app.run(debug=True, host='0.0.0.0', port=5000)
