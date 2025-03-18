@@ -185,6 +185,6 @@ if __name__ == '__main__':
     # copy and override /static/ripple_map.html with /static/og_ripple_map.html
     if os.path.exists('static/og_ripple_map.html'):
         os.remove('static/ripple_map.html')
-        #copy not move
+        # copy not move
         os.system('cp static/og_ripple_map.html static/ripple_map.html')
     app.run(debug=True, host='0.0.0.0', port=5000)
