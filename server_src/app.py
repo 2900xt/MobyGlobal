@@ -1,6 +1,8 @@
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 from flask import Flask, render_template, request, jsonify, send_from_directory
 import folium
-import os
 import numpy as np
 import json
 import csv
@@ -179,7 +181,7 @@ def update_map():
     map.save(map_path)
 
 if __name__ == '__main__':
-    model_path = '/home/taha/rsef2025/whale_detector/Moby5.h5'
+    model_path = '/home/taha/Code/science-fair-2025/whale_detector/Moby5.h5'
     model = load_model(model_path)
     log(f"Using Moby5.h5")
     # copy and override /static/ripple_map.html with /static/og_ripple_map.html

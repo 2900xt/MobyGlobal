@@ -105,13 +105,14 @@ def send_to_server_thread():
             continue
 
         audio_data = output_queue.get()
-        get_melspectrogram(audio_data).tolist()
+        spec = get_melspectrogram(audio_data).tolist()
+        send_value(spec)
         log('Sent data to server')
 
 
 log('Whale Audio Detector Client 1.0')
 
-#register_dev()
+register_dev()
 send_thread1 = threading.Thread(target=send_to_server_thread)
 send_thread1.start()
 
