@@ -1,4 +1,3 @@
-import librosa
 import threading
 import datetime
 import queue
@@ -7,7 +6,6 @@ import requests
 import json
 import numpy as np
 import sounddevice as sd
-from flask import Flask, jsonify, request
 
 # Queue for communication between threads
 output_queue = queue.Queue()
@@ -33,27 +31,7 @@ def get_microphone_audio(duration, sampling_rate):
     # Flatten the audio array
     audio = audio.flatten()
 
-    # Generate Mel spectrogram
-    mel_spectrogram = librosa.feature.melspectrogram(
-        y=audio, 
-        sr=sampling_rate,
-        fmax=2048
-    )
-    mel_spectrogram_dB = librosa.power_to_db(mel_spectrogram, ref=np.max)
-    
     return audio
-
-
-def get_melspectrogram(audio):
-    # Generate Mel spectrogram
-    mel_spectrogram = librosa.feature.melspectrogram(
-        y=audio, 
-        sr=sampling_rate,
-        fmax=2048
-    )
-    mel_spectrogram_dB = librosa.power_to_db(mel_spectrogram, ref=np.max)
-    
-    return mel_spectrogram_dB
 
 
 # The value you want to send
@@ -104,9 +82,8 @@ def send_to_server_thread():
             time.sleep(0.1)
             continue
 
-        audio_data = output_queue.get()
-        spec = get_melspectrogram(audio_data).tolist()
-        send_value(spec)
+        audio_data = output_queue.get().tolist()
+        send_value(audio_data)
         log('Sent data to server')
 
 

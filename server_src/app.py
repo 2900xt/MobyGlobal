@@ -12,6 +12,7 @@ import tensorflow as tf
 from tensorflow.keras.models import load_model
 import random
 import requests
+import librosa
 
 app = Flask(__name__)
 values = dict()
@@ -20,9 +21,22 @@ def log(msg):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"[{timestamp}] {msg}")
 
+
 @app.route('/')
 def index():
     return render_template('map.html')
+
+
+def get_melspectrogram(audio):
+    # Generate Mel spectrogram
+    mel_spectrogram = librosa.feature.melspectrogram(
+        y=audio, 
+        sr=sampling_rate,
+        fmax=2048
+    )
+    mel_spectrogram_dB = librosa.power_to_db(mel_spectrogram, ref=np.max)
+    
+    return mel_spectrogram_dB
 
 
 @app.route('/update', methods=['POST'])
@@ -37,7 +51,10 @@ def update_data():
             return jsonify({'error': 'No name provided'}), 400
 
         new_spectogram = np.array(data.get('data'))
+        #turn the audio into a mel spectrogram
+        new_spectogram = get_melspectrogram(new_spectogram)
         dev_name = str(data.get('name'))
+        
         prob = set_probabillity(new_spectogram, dev_name)
 
         # Update the map with the new data
@@ -128,6 +145,7 @@ def set_probabillity(mel_spectrogram_dB, dev_name):
     values[dev_name]['last_upd'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     store_probability(float(prob), dev_name)
     return prob
+
 
 @app.route('/update_map')
 def update_map_route():
