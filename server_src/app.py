@@ -75,7 +75,6 @@ def update_data():
         if new_spectogram.shape[1] > 90:
             #restrict the size of the spectrogram to 128x90, 90 last columns
             new_spectogram = new_spectogram[:, -90:]
-            print(new_spectogram.shape)
             prob = set_probabillity(new_spectogram, dev_name)
         else:
             prob = 0.0
@@ -238,7 +237,7 @@ def update_map():
     map.save(map_path)
 
 if __name__ == '__main__':
-    model_path = '/home/taha/Code/science-fair-2025/whale_detector/Moby5.h5'
+    model_path = '../whale_detector/Moby5.h5'
     model = load_model(model_path)
     log(f"Using Moby5.h5")
     # copy and override /static/ripple_map.html with /static/og_ripple_map.html
