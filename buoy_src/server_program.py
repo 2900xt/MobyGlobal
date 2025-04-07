@@ -11,7 +11,7 @@ import sounddevice as sd
 output_queue = queue.Queue()
 
 # The URL of the Flask server's update endpoint
-url = 'http://127.0.0.1:5000/'
+url = 'http://192.168.1.239:5000/'
 dev_name = 'taha-RPi'
 location = '39.042388, -77.550108'
 
@@ -30,9 +30,9 @@ def get_microphone_audio(duration, sampling_rate):
 
     # Flatten the audio array
     audio = audio.flatten()
+    print(audio)
 
     return audio
-
 
 # The value you want to send
 def send_value(value_to_send):
