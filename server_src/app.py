@@ -16,6 +16,7 @@ import librosa
 
 app = Flask(__name__)
 values = dict()
+spectrograms = dict()
 
 def log(msg):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -31,7 +32,7 @@ def get_melspectrogram(audio):
     # Generate Mel spectrogram
     mel_spectrogram = librosa.feature.melspectrogram(
         y=audio, 
-        sr=sampling_rate,
+        sr=4000,
         fmax=2048
     )
     mel_spectrogram_dB = librosa.power_to_db(mel_spectrogram, ref=np.max)
@@ -43,7 +44,9 @@ def get_melspectrogram(audio):
 def update_data():
     try:
         # Get the new value from the request JSON body
+        #print the raw json data
         data = request.get_json()
+
         if 'data' not in data:
             return jsonify({'error': 'No array provided'}), 400
         
@@ -53,9 +56,30 @@ def update_data():
         new_spectogram = np.array(data.get('data'))
         #turn the audio into a mel spectrogram
         new_spectogram = get_melspectrogram(new_spectogram)
+
         dev_name = str(data.get('name'))
-        
-        prob = set_probabillity(new_spectogram, dev_name)
+        #stack with previous spectrogram
+        if dev_name in spectrograms:
+            spectrograms[dev_name] = np.concatenate((spectrograms[dev_name], new_spectogram), axis=1)
+        else:
+            spectrograms[dev_name] = new_spectogram
+
+        #restrict the size of the spectrogram (spectrograms[data.get('name')]) to 128x84
+
+
+        #expand the size of 2nd dimension of the spectrogram from (128x12 to 128x84)
+        #do this by repeating the values in the 2nd dimension
+        new_spectogram = spectrograms[data.get('name')]
+        #print(new_spectogram.shape)
+
+        if new_spectogram.shape[1] > 90:
+            #restrict the size of the spectrogram to 128x90, 90 last columns
+            new_spectogram = new_spectogram[:, -90:]
+            print(new_spectogram.shape)
+            prob = set_probabillity(new_spectogram, dev_name)
+        else:
+            prob = 0.0
+            
 
         # Update the map with the new data
         update_map()
@@ -79,9 +103,18 @@ def register_sensor():
             'location' : dev_loc,
             'last_upd' : datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
+        log(f'Register Data: {data}')
+
+        if dev_name == "None":
+            return jsonify({'error': 'Invalid Name'}), 400
+
+
+        if dev_loc == "None":
+            return jsonify({'error': 'Invalid Location'}), 400
+
+
         return jsonify({'message': 'Sensor Registered Successfully'}), 200
     except Exception:
-        throw
         return jsonify({'error': 'Invalid Query'}), 400
 
 
@@ -127,7 +160,7 @@ def set_probabillity(mel_spectrogram_dB, dev_name):
     window_length = 87
     prob = 0
     step = 3
-    rng = range(0, n_time_frames - window_length + 1, step)
+    rng = [0]
 
     for start_idx in rng:
         end_idx = start_idx + window_length
@@ -141,6 +174,14 @@ def set_probabillity(mel_spectrogram_dB, dev_name):
     prob = min(random.uniform(0.95, 1.0), prob*10)
     
     log(f'{prob*100:.6f}% whale at {dev_name}')
+    if dev_name not in values:
+        values[dev_name] = {
+            'name' : dev_name,
+            'prob' : prob,
+            'location' : "0,0",
+            'last_upd' : datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+
     values[dev_name]['prob'] = max(prob, values[dev_name]['prob']*0.8)
     values[dev_name]['last_upd'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     store_probability(float(prob), dev_name)
@@ -166,7 +207,6 @@ def update_map():
         lat = float(loc.split(",")[0])
         long = float(loc.split(",")[1])
         prob = values[sensor]['prob']
-        print(f"Adding {sensor} to map at {lat}, {long} with probability {prob}")
 
         event = (float(lat), float(long))
         if prob > 0.1:
@@ -185,7 +225,6 @@ def update_map():
         lat = float(loc.split(",")[0])
         long = float(loc.split(",")[1])
         prob = values[sensor]['prob']
-        print(f"Adding {sensor} to map at {lat}, {long} with probability {prob}")
 
         folium.Marker(
             location=(lat, long),
