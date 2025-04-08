@@ -22,10 +22,21 @@ def log(msg):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"[{timestamp}] {msg}")
 
-
 @app.route('/')
 def index():
-    return render_template('map.html')
+    return render_template('index.html', active_page='home')
+
+@app.route('/map')
+def map_view():
+    return render_template('map.html', active_page='map')
+
+@app.route('/data')
+def data_explorer():
+    return render_template('data.html', active_page='data')
+
+@app.route('/about')
+def about():
+    return render_template('about.html', active_page='about')
 
 
 def get_melspectrogram(audio):
@@ -138,7 +149,7 @@ def retrieve_list():
 
 
 def store_probability(probability, sensor_name):
-    fname = f'./data/{sensor_name}_data.csv'
+    fname = f'./static/adddata/{sensor_name}_data.csv'
     data = {
         'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
         'probability': probability
@@ -153,7 +164,103 @@ def store_probability(probability, sensor_name):
             writer.writeheader()
 
         writer.writerow(data)
+
+@app.route('/preview_csv/<filename>')
+def preview_csv(filename):
+    try:
+        # Ensure the filename only contains safe characters
+        if not all(c.isalnum() or c in '-_.' for c in filename):
+            return "Invalid filename", 400
+            
+        # Determine the file path based on the filename
+        if os.path.exists(f'./static/data/{filename}'):
+            filepath = f'./static/data/{filename}'
+        elif os.path.exists(f'./static/adddata/{filename}'):
+            filepath = f'./static/adddata/{filename}'
+        else:
+            return "File not found", 404
+        
+        # Read the CSV file
+        data = []
+        headers = []
+        with open(filepath, 'r') as file:
+            csv_reader = csv.reader(file)
+            headers = next(csv_reader)  # Get headers
+            
+            # Limit to 1000 rows for preview
+            row_count = 0
+            for row in csv_reader:
+                data.append(row)
+                row_count += 1
+                if row_count >= 1000:  # Limit to prevent large files from causing issues
+                    break
+        
+        # Render the CSV data as HTML
+        return render_template('csv_preview.html', filename=filename, headers=headers, data=data)
     
+    except Exception as e:
+        log(f'Error in preview_csv: {e}')
+        return f"Error: {str(e)}", 500
+
+@app.route('/graph_csv/<filename>')
+def graph_csv(filename):
+    """Render a template with a graph of the CSV data"""
+    try:
+        # Ensure the filename only contains safe characters
+        if not all(c.isalnum() or c in '-_.' for c in filename):
+            return "Invalid filename", 400
+            
+        # Check if file exists
+        if os.path.exists(f'./static/data/{filename}'):
+            return render_template('csv_graph.html', filename=filename)
+        elif os.path.exists(f'./static/adddata/{filename}'):
+            return render_template('csv_graph.html', filename=filename)
+        else:
+            return "File not found", 404
+    except Exception as e:
+        log(f'Error in graph_csv: {e}')
+        return f"Error: {str(e)}", 500
+
+@app.route('/api/csv_data/<filename>')
+def csv_data(filename):
+    """API endpoint to get CSV data in JSON format for charting"""
+    try:
+        # Ensure the filename only contains safe characters
+        if not all(c.isalnum() or c in '-_.' for c in filename):
+            return jsonify({"error": "Invalid filename"}), 400
+            
+        # Determine the file path based on the filename
+        if os.path.exists(f'./static/data/{filename}'):
+            filepath = f'./static/data/{filename}'
+        elif os.path.exists(f'./static/adddata/{filename}'):
+            filepath = f'./static/adddata/{filename}'
+        else:
+            return jsonify({"error": "File not found"}), 404
+        
+        # Read the CSV file
+        timestamps = []
+        values = []
+        with open(filepath, 'r') as file:
+            csv_reader = csv.reader(file)
+            next(csv_reader)  # Skip header
+            
+            # Limit to 10000 data points for performance
+            for i, row in enumerate(csv_reader):
+                if i >= 10000:
+                    break
+                    
+                if len(row) >= 2:  # Ensure row has enough columns
+                    timestamps.append(row[0])
+                    values.append(float(row[1]))
+        
+        return jsonify({
+            "timestamps": timestamps,
+            "values": values
+        })
+    
+    except Exception as e:
+        log(f'Error in csv_data: {e}')
+        return jsonify({"error": str(e)}), 500
 
 def set_probabillity(mel_spectrogram_dB, dev_name):
     n_time_frames = mel_spectrogram_dB.shape[1]

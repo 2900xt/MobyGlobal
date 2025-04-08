@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+
+{% block title %}Data Explorer - MobyGlobal{% endblock %}
+
+{% block additional_styles %}
+.data-container {
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    padding: 25px;
+    margin-bottom: 30px;
+}
+
+.data-container h2 {
+    color: var(--dark-color);
+}
+
+.sensor-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 25px;
+    margin-top: 30px;
+}
+
+.sensor-card {
+    border: none;
+    border-radius: 12px;
+    padding: 25px;
+    transition: transform 0.3s, box-shadow 0.3s;
+    background-color: #f9f9f9;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    position: relative;
+    overflow: hidden;
+}
+
+.sensor-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 5px;
+    background: var(--primary-color);
+}
+
+.sensor-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+}
+
+.probability-indicator {
+    height: 10px;
+    background: linear-gradient(to right, var(--bg-color), var(--primary-color));
+    border-radius: 5px;
+    margin: 15px 0;
+    overflow: hidden;
+    position: relative;
+}
+
+.sensor-meta {
+    display: flex;
+    justify-content: space-between;
+    color: #666;
+    font-size: 0.9rem;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+.sensor-card h3 {
+    color: var(--dark-color);
+    margin-top: 0;
+    font-size: 1.6rem;
+}
+
+.sensor-meta a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.3s;
+    display: inline-block;
+    padding: 5px 10px;
+    background-color: rgba(98, 0, 238, 0.1);
+    border-radius: 4px;
+}
+
+.sensor-meta a:hover {
+    color: var(--secondary-color);
+    background-color: rgba(255, 82, 82, 0.1);
+}
+
+.data-files {
+    list-style: none;
+    padding: 0;
+}
+
+.data-files li {
+    padding: 15px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.3s;
+}
+
+.data-files li:hover {
+    background-color: #f9f9f9;
+}
+
+.data-files li:last-child {
+    border-bottom: none;
+}
+
+.data-files li::before {
+    content: "📊";
+    margin-right: 10px;
+    font-size: 1.2rem;
+}
+
+.data-files a {
+    color: var(--dark-color);
+    text-decoration: none;
+    flex-grow: 1;
+    font-weight: 500;
+    transition: color 0.3s;
+}
+
+.data-files a:hover {
+    color: var(--primary-color);
+}
+
+.loading {
+    padding: 30px;
+    text-align: center;
+    color: #666;
+    background-color: #f9f9f9;
+    border-radius: 12px;
+}
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <header>
+        <h1>Data Explorer</h1>
+    </header>
+    
+    <div class="data-container">
+        <h2>Active Sensors</h2>
+        <p>View real-time data from our network of sensors around the world.</p>
+        
+        <div class="sensor-list" id="sensorList">
+            <!-- Sensors will be loaded here -->
+            <div class="loading">Loading sensor data...</div>
+        </div>
+    </div>
+    
+    <div class="data-container">
+        <h2>Historical Data</h2>
+        <p>Download historical data from our sensors for analysis.</p>
+        
+        <div id="csvList">
+            <!-- CSV files will be listed here -->
+            <div class="loading">Loading available datasets...</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const sensorList = document.getElementById('sensorList');
+        const csvList = document.getElementById('csvList');
+        
+        // Function to load sensor data
+        function loadSensors() {
+            fetch('/get_list', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({})
+            })
+            .then(response => response.json())
+            .then(data => {
+                sensorList.innerHTML = '';
+                
+                if (Object.keys(data).length === 0) {
+                    sensorList.innerHTML = '<div class="loading">No active sensors found.</div>';
+                    return;
+                }
+                
+                for (const [sensorName, sensorData] of Object.entries(data)) {
+                    const sensorCard = document.createElement('div');
+                    sensorCard.className = 'sensor-card';
+                    
+                    const probability = parseFloat(sensorData.prob) * 100;
+                    
+                    sensorCard.innerHTML = `
+                        <h3>${sensorName}</h3>
+                        <div class="probability-indicator" style="background: linear-gradient(to right, var(--bg-color), var(--primary-color) ${probability}%)"></div>
+                        <p><strong>Whale Detection:</strong> ${probability.toFixed(1)}%</p>
+                        <p><strong>Location:</strong> ${sensorData.location}</p>
+                        <div class="sensor-meta">
+                            <span>Last updated: ${sensorData.last_upd}</span>
+                            <a href="./data/${sensorName}_data.csv" download>Download CSV</a>
+                        </div>
+                    `;
+                    
+                    sensorList.appendChild(sensorCard);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                sensorList.innerHTML = '<div class="loading">Error loading sensor data.</div>';
+            });
+        }
+        
+        // Load sensors immediately and then every 10 seconds
+        loadSensors();
+        setInterval(loadSensors, 10000);
+        
+        // Simulate loading CSV files
+        setTimeout(() => {
+            csvList.innerHTML = `
+                <ul class="data-files">
+                    <li>
+                        <a href="/static/data/moby_buoy_1_data.csv" download>moby_buoy_1_data.csv</a>
+                        <a href="/graph_csv/moby_buoy_1_data.csv" target="_blank" class="preview-link">View Graph</a>
+                    </li>
+                    <li>
+                        <a href="/static/data/moby_buoy_2_data.csv" download>moby_buoy_2_data.csv</a>
+                        <a href="/graph_csv/moby_buoy_2_data.csv" target="_blank" class="preview-link">View Graph</a>
+                    </li>
+                </ul>
+            `;
+        }, 1000);
+    });
+</script>
+{% endblock %}

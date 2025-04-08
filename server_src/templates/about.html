@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}About - MobyGlobal{% endblock %}
+
+{% block additional_styles %}
+.about-content {
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    padding: 30px;
+    margin-bottom: 30px;
+}
+
+.about-content h2 {
+    margin-top: 40px;
+    color: var(--dark-color);
+}
+
+.about-content h2:first-child {
+    margin-top: 0;
+}
+
+.about-content ul {
+    padding-left: 25px;
+    margin: 20px 0;
+}
+
+.about-content ul li {
+    margin-bottom: 15px;
+    position: relative;
+    padding-left: 10px;
+}
+
+.about-content ul li::before {
+    content: "►";
+    color: var(--primary-color);
+    font-size: 0.8em;
+    position: absolute;
+    left: -20px;
+    top: 2px;
+}
+
+.tech-stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.tech-badge {
+    padding: 8px 16px;
+    background-color: var(--bg-color);
+    border-radius: 50px;
+    color: var(--dark-color);
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <header>
+        <h1>About MobyGlobal</h1>
+    </header>
+    
+    <div class="about-content">
+        <h2>Our Mission</h2>
+        <p>MobyGlobal was created to help protect and study whale populations through non-invasive monitoring technology. Our network of acoustic sensors and AI-driven detection algorithms allow us to track whale movements in real-time, providing valuable data for conservation efforts and research.</p>
+        
+        <h2>The Technology</h2>
+        <p>Our system uses a network of underwater hydrophones to capture ocean sounds. These audio signals are processed through a specialized neural network trained to identify whale vocalizations with over 95% accuracy. The data is then transmitted to our central server where it's displayed on our interactive map.</p>
+        
+        <div class="tech-stack">
+            <span class="tech-badge">TensorFlow</span>
+            <span class="tech-badge">Python</span>
+            <span class="tech-badge">Flask</span>
+            <span class="tech-badge">Machine Learning</span>
+            <span class="tech-badge">IoT</span>
+        </div>
+        
+        <h2>Conservation Impact</h2>
+        <p>The real-time data provided by MobyGlobal helps:</p>
+        <ul>
+            <li>Alert shipping vessels to whale presence, reducing ship strikes</li>
+            <li>Monitor migration patterns and habitat usage</li>
+            <li>Track population changes over time</li>
+            <li>Identify areas that need enhanced protection</li>
+        </ul>
+        
+        <h2>The Team</h2>
+        <p>MobyGlobal is an ISEF 2025 project developed by Matthew Li & Taha Rawjani, a team of students passionate about marine conservation and technology. 
+            Our interdisciplinary team brings together expertise in software development, electronics, marine biology, and data science.</p>
+    </div>
+</div>
+{% endblock %}

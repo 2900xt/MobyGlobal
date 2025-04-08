@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MobyGlobal - Whale Detection Network{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&family=Montserrat:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #6200EE;
+            --secondary-color: #FF5252;
+            --accent-color: #00BFA5;
+            --dark-color: #121212;
+            --light-color: #FFFFFF;
+            --bg-color: #F5F5F5;
+            --text-color: #121212;
+        }
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* Navigation */
+        nav {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.8rem 2rem;
+        }
+        
+        .logo {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: white;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            position: relative;
+        }
+        
+        .logo::after {
+            content: "";
+            position: absolute;
+            bottom: -3px;
+            left: 0;
+            width: 40%;
+            height: 4px;
+            background-color: var(--accent-color);
+            border-radius: 2px;
+        }
+        
+        .nav-links {
+            list-style: none;
+            display: flex;
+            margin: 0;
+            padding: 0;
+            font-weight: 600;
+        }
+        
+        .nav-links li {
+            margin: 0 10px;
+        }
+        
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+        
+        .nav-links a:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-3px);
+        }
+        
+        .nav-links a.active {
+            background-color: var(--accent-color);
+        }
+        
+        /* Header for inner pages */
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 3rem 0;
+            text-align: center;
+            margin-bottom: 2.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        header::before {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 8px;
+            background: linear-gradient(90deg, var(--accent-color), var(--secondary-color));
+        }
+        
+        header h1 {
+            margin: 0;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 3rem;
+            font-weight: 900;
+            letter-spacing: -1px;
+            position: relative;    
+            color: white; /* This will override the general heading color */
+
+            display: inline-block;
+        }
+        
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            background: var(--dark-color);
+            color: white;
+            margin-top: 3rem;
+        }
+        
+        /* General styles */
+        h1, h2, h3 {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 900;
+            color: var(--primary-color);
+        }
+        
+        h2 {
+            font-size: 2.2rem;
+            margin-bottom: 1.5rem;
+            position: relative;
+            padding-bottom: 0.8rem;
+        }
+        
+        h2::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 60px;
+            height: 4px;
+            background-color: var(--accent-color);
+            border-radius: 2px;
+        }
+        
+        .btn {
+            display: inline-block;
+            background-color: var(--secondary-color);
+            color: white;
+            padding: 0.9rem 2.2rem;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(255, 82, 82, 0.3);
+            border: none;
+            cursor: pointer;
+        }
+        
+        .btn:hover {
+            background-color: var(--accent-color);
+            box-shadow: 0 6px 15px rgba(0, 191, 165, 0.4);
+            transform: translateY(-3px);
+        }
+        
+        {% block additional_styles %}{% endblock %}
+    </style>
+    {% block head_extra %}{% endblock %}
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <a href="/" class="logo">MobyGlobal</a>
+            <ul class="nav-links">
+                <li><a href="/" {% if active_page == 'home' %}class="active"{% endif %}>Home</a></li>
+                <li><a href="/map" {% if active_page == 'map' %}class="active"{% endif %}>Live Map</a></li>
+                <li><a href="/data" {% if active_page == 'data' %}class="active"{% endif %}>Data Explorer</a></li>
+                <li><a href="/about" {% if active_page == 'about' %}class="active"{% endif %}>About</a></li>
+            </ul>
+        </div>
+    </nav>
+    
+    {% block content %}{% endblock %}
+    
+    <footer>
+        <div class="container">
+            <p>MobyGlobal Whale Detection Network &copy; 2025</p>
+        </div>
+    </footer>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

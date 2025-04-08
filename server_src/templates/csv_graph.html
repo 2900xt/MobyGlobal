@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Graph: {{ filename }} - MobyGlobal{% endblock %}
+
+{% block additional_styles %}
+.graph-container {
+    width: 100%;
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    padding: 20px;
+    margin-top: 20px;
+    height: 85vh; /* Increased container height */
+}
+
+.back-btn {
+    margin: 15px 0;
+    display: inline-block;
+    padding: 8px 15px;
+    background-color: var(--secondary-color);
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+}
+
+.back-btn:hover {
+    background-color: var(--dark-color);
+}
+
+.graph-info {
+    margin-bottom: 15px;
+    color: #666;
+}
+
+.chart-container {
+    position: relative;
+    height: 80vh; /* Increased from 70vh to 80vh to make the chart taller */
+    width: 100%;
+}
+
+/* Add a setting for highlighting certain probability ranges */
+.threshold-indicator {
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 5px;
+    border-left: 4px solid var(--primary-color);
+    font-size: 0.9rem;
+}
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <header>
+        <h1>Graph: {{ filename }}</h1>
+    </header>
+    
+    <a href="/data" class="back-btn">← Back to Data Explorer</a>
+    
+    <div class="graph-info">
+        <p>Showing time series data from {{ filename }}. <a href="/static/data/{{ filename }}" download>Download full file</a></p>
+    </div>
+    
+    <div class="graph-container">
+        <canvas id="csvChart"></canvas>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Fetch CSV data
+        fetch('/api/csv_data/{{ filename }}')
+            .then(response => response.json())
+            .then(data => {
+                const ctx = document.getElementById('csvChart').getContext('2d');
+                
+                // Create the chart
+                const chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.timestamps,
+                        datasets: [{
+                            label: 'Whale Detection Probability',
+                            data: data.values,
+                            backgroundColor: 'rgba(98, 0, 238, 0.1)',
+                            borderColor: 'rgba(98, 0, 238, 0.8)',
+                            pointBackgroundColor: 'rgba(98, 0, 238, 0.8)',
+                            borderWidth: 2,
+                            pointRadius: 0,  // Don't show points by default
+                            pointHoverRadius: 5,  // Show points on hover
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Time'
+                                },
+                                ticks: {
+                                    maxTicksLimit: 20,
+                                    maxRotation: 45,
+                                    minRotation: 45
+                                }
+                            },
+                            y: {  
+                                type: 'logarithmic',
+                                title: {
+                                    display: true,
+                                    text: 'Probability'
+                                },
+                                beginAtZero: true,
+                                min: 1e-28,
+                                max: 1,
+                                ticks: {
+                                    callback: function(value) {
+                                        return Number(value).toExponential(1); // cleaner labels
+                                    }
+                                }
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Whale Detection Probability Over Time',
+                                font: {
+                                    size: 18
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `Probability: ${context.parsed.y.toFixed(6)}`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error loading CSV data:', error);
+                document.querySelector('.graph-container').innerHTML = '<p class="error">Error loading data. Please try again later.</p>';
+            });
+    });
+</script>
+{% endblock %}

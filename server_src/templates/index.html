@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block title %}MobyGlobal - Whale Detection Network{% endblock %}
+
+{% block additional_styles %}
+.hero {
+    background: url('https://images.unsplash.com/photo-1568430462989-44163eb1752f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1950&q=80');
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    color: white;
+    padding: 8rem 0;
+    text-align: center;
+    margin-bottom: 4rem;
+    isolation: isolate;
+}
+
+.hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--primary-color);
+    opacity: 0.8;
+    z-index: -1;
+}
+
+.hero h1 {
+    font-size: 4rem;
+    margin-bottom: 1.5rem;
+    color: white;
+    text-shadow: 0 2px 15px rgba(0, 0, 0, 0.2);
+    position: relative;
+}
+
+.hero h1::after {
+    content: "";
+    position: absolute;
+    bottom: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 5px;
+    background-color: var(--accent-color);
+    border-radius: 2px;
+}
+
+.hero p {
+    font-size: 1.6rem;
+    max-width: 800px;
+    margin: 2rem auto;
+}
+
+.features {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 2rem;
+    margin-bottom: 4rem;
+}
+
+.feature {
+    flex: 1;
+    min-width: 300px;
+    background: white;
+    padding: 2.5rem;
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+    text-align: center;
+    transition: transform 0.3s, box-shadow 0.3s;
+    position: relative;
+    overflow: hidden;
+}
+
+.feature:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+}
+
+.feature::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 6px;
+    background: var(--secondary-color);
+    border-radius: 0 0 3px 3px;
+}
+
+.feature:nth-child(2)::before {
+    background: var(--accent-color);
+}
+
+.feature:nth-child(3)::before {
+    background: var(--primary-color);
+}
+
+.feature-icon {
+    font-size: 4rem;
+    margin-bottom: 1.5rem;
+}
+
+.feature h2 {
+    font-size: 1.8rem;
+    margin-bottom: 1rem;
+}
+
+.feature h2::after {
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+}
+
+.cta {
+    background-color: var(--secondary-color);
+    padding: 5rem 0;
+    text-align: center;
+    color: white;
+    border-radius: 12px;
+    margin-bottom: 4rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.cta::before {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 150px;
+    height: 150px;
+    background: var(--accent-color);
+    border-radius: 50%;
+    opacity: 0.2;
+    transform: translate(30%, 30%);
+}
+
+.cta::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100px;
+    height: 100px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    opacity: 0.2;
+    transform: translate(-30%, -30%);
+}
+
+.cta h2 {
+    color: white;
+    margin-bottom: 1.5rem;
+    font-size: 2.5rem;
+}
+
+.cta h2::after {
+    background-color: white;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.cta .btn {
+    background-color: white;
+    color: var(--secondary-color);
+    box-shadow: 0 4px 15px rgba(255, 255, 255, 0.25);
+}
+
+.cta .btn:hover {
+    background-color: var(--accent-color);
+    color: white;
+}
+{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="container">
+        <h1>MobyGlobal Whale Detection Network</h1>
+        <p>Advanced acoustic monitoring system for real-time whale detection across the world's oceans</p>
+        <a href="/map" class="btn">View Live Map</a>
+    </div>
+</section>
+
+<div class="container">
+    <section class="features">
+        <div class="feature">
+            <div class="feature-icon">🔊</div>
+            <h2>Acoustic Monitoring</h2>
+            <p>Our network uses advanced acoustic sensors to detect whale vocalizations in real-time across the oceans.</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">🤖</div>
+            <h2>AI Powered</h2>
+            <p>Machine learning algorithms analyze sound patterns to identify whale species with high accuracy.</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">🌊</div>
+            <h2>Global Coverage</h2>
+            <p>Our sensor network provides comprehensive monitoring of major migration routes and habitats.</p>
+        </div>
+    </section>
+    
+    <section class="cta">
+        <div class="container">
+            <h2>See Marine Life Activity In Real Time</h2>
+            <p>Our interactive map shows you where whales have been detected by our global sensor network</p>
+            <a href="/map" class="btn">Explore The Map</a>
+        </div>
+    </section>
+    
+    <section>
+        <h2>About The Project</h2>
+        <p>MobyGlobal is a state-of-the-art whale detection network that uses acoustic monitoring and artificial intelligence to track whale movements across the world's oceans. Our system helps marine biologists study migration patterns, assists in conservation efforts, and helps prevent ship strikes.</p>
+        <p>The network consists of dozens of underwater sensors that capture audio data which is then analyzed by our custom neural network to detect whale vocalizations with over 95% accuracy.</p>
+    </section>
+</div>
+{% endblock %}
