@@ -1,0 +1,452 @@
+{% extends "base.html" %}
+
+{% block title %}Try It - MobyGlobal{% endblock %}
+
+{% block additional_styles %}
+.try-it-container {
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    padding: 25px;
+    margin-bottom: 30px;
+}
+
+.try-it-container h2 {
+    color: var(--dark-color);
+    margin-bottom: 20px;
+}
+
+.recorder-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px;
+    background-color: #f9f9f9;
+    border-radius: 12px;
+    margin: 20px 0;
+}
+
+.record-button {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background-color: var(--secondary-color);
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    transition: all 0.3s ease;
+}
+
+.record-button:hover {
+    transform: scale(1.05);
+    background-color: #ff3b3b;
+}
+
+.record-button.recording {
+    animation: pulse 1.5s infinite;
+    background-color: #ff3b3b;
+}
+
+.record-button.processing {
+    background-color: var(--primary-color);
+}
+
+.record-status {
+    font-size: 16px;
+    margin-bottom: 15px;
+    color: #666;
+}
+
+.result-container {
+    margin-top: 30px;
+    padding: 20px;
+    border-radius: 12px;
+    background-color: #f0f8ff;
+    display: none;
+}
+
+.result-container.visible {
+    display: block;
+}
+
+.probability-bar {
+    height: 30px;
+    background-color: #e0e0e0;
+    border-radius: 15px;
+    margin: 15px 0;
+    overflow: hidden;
+    position: relative;
+}
+
+.probability-fill {
+    height: 100%;
+    background: linear-gradient(to right, #6200EE, #00BFA5);
+    border-radius: 15px;
+    width: 0%;
+    transition: width 1s ease-in-out;
+}
+
+.probability-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-weight: bold;
+    text-shadow: 0 0 3px rgba(0,0,0,0.5);
+}
+
+.instructions {
+    background-color: #f5f5f5;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.instructions h3 {
+    margin-top: 0;
+    color: var(--primary-color);
+}
+
+.instructions ol {
+    padding-left: 25px;
+}
+
+.instructions li {
+    margin-bottom: 10px;
+}
+
+.audio-visualizer {
+    width: 100%;
+    height: 100px;
+    background-color: #000;
+    margin: 20px 0;
+    border-radius: 8px;
+}
+
+.audio-controls {
+    display: flex;
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.audio-controls button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    background-color: var(--primary-color);
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.audio-controls button:hover {
+    background-color: #4a00b8;
+}
+
+.audio-controls button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <header>
+        <h1>Try the Whale Sound Detector</h1>
+    </header>
+
+    <div class="try-it-container">
+        <div class="instructions">
+            <h3>How to Use</h3>
+            <ol>
+                <li>Click the record button to start recording audio from your microphone.</li>
+                <li>Make whale sounds or play whale sounds from another device.</li>
+                <li>Recording will automatically stop after 5 seconds.</li>
+                <li>Our AI model will analyze the audio and tell you the probability of it containing whale sounds.</li>
+            </ol>
+            <p><strong>Note:</strong> For best results, use a quiet environment and a good quality microphone.</p>
+        </div>
+
+        <h2>Record Your Audio</h2>
+        <div class="recorder-container">
+            <canvas id="audioVisualizer" class="audio-visualizer"></canvas>
+            <button id="recordButton" class="record-button">
+                <i class="record-icon">🎤</i>
+            </button>
+            <div id="recordStatus" class="record-status">Ready to record</div>
+
+            <div class="audio-controls">
+                <button id="playButton" disabled>Play Recording</button>
+                <button id="submitButton" disabled>Analyze Sound</button>
+            </div>
+        </div>
+
+        <div id="resultContainer" class="result-container">
+            <h3>Analysis Result</h3>
+            <p id="resultMessage">Processing your audio...</p>
+            <div class="probability-bar">
+                <div id="probabilityFill" class="probability-fill"></div>
+                <div id="probabilityText" class="probability-text">0%</div>
+            </div>
+            <p>Our AI model has analyzed your audio and determined the probability of whale sounds.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const recordButton = document.getElementById('recordButton');
+        const recordStatus = document.getElementById('recordStatus');
+        const playButton = document.getElementById('playButton');
+        const submitButton = document.getElementById('submitButton');
+        const resultContainer = document.getElementById('resultContainer');
+        const resultMessage = document.getElementById('resultMessage');
+        const probabilityFill = document.getElementById('probabilityFill');
+        const probabilityText = document.getElementById('probabilityText');
+        const audioVisualizer = document.getElementById('audioVisualizer');
+        const visualizerContext = audioVisualizer.getContext('2d');
+
+        let mediaRecorder;
+        let audioChunks = [];
+        let audioBlob;
+        let audioUrl;
+        let audioElement;
+        let recordingDuration = 5000; // 5 seconds
+        let audioContext;
+        let analyser;
+        let dataArray;
+        let animationId;
+        let audioData = [];
+
+        // Set up canvas
+        audioVisualizer.width = audioVisualizer.offsetWidth;
+        audioVisualizer.height = audioVisualizer.offsetHeight;
+
+        // Draw empty visualizer
+        function drawEmptyVisualizer() {
+            visualizerContext.fillStyle = '#000';
+            visualizerContext.fillRect(0, 0, audioVisualizer.width, audioVisualizer.height);
+            visualizerContext.strokeStyle = '#00BFA5';
+            visualizerContext.lineWidth = 2;
+            visualizerContext.beginPath();
+            visualizerContext.moveTo(0, audioVisualizer.height / 2);
+            visualizerContext.lineTo(audioVisualizer.width, audioVisualizer.height / 2);
+            visualizerContext.stroke();
+        }
+
+        drawEmptyVisualizer();
+
+        // Function to visualize audio
+        function visualizeAudio() {
+            analyser.getByteTimeDomainData(dataArray);
+
+            visualizerContext.fillStyle = 'rgb(0, 0, 0)';
+            visualizerContext.fillRect(0, 0, audioVisualizer.width, audioVisualizer.height);
+
+            visualizerContext.lineWidth = 2;
+            visualizerContext.strokeStyle = 'rgb(0, 191, 165)';
+            visualizerContext.beginPath();
+
+            const sliceWidth = audioVisualizer.width / dataArray.length;
+            let x = 0;
+
+            for (let i = 0; i < dataArray.length; i++) {
+                const v = dataArray[i] / 128.0;
+                const y = v * audioVisualizer.height / 2;
+
+                if (i === 0) {
+                    visualizerContext.moveTo(x, y);
+                } else {
+                    visualizerContext.lineTo(x, y);
+                }
+
+                x += sliceWidth;
+            }
+
+            visualizerContext.lineTo(audioVisualizer.width, audioVisualizer.height / 2);
+            visualizerContext.stroke();
+
+            animationId = requestAnimationFrame(visualizeAudio);
+        }
+
+        // Function to start recording
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                // Set up audio context for visualization
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const source = audioContext.createMediaStreamSource(stream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 2048;
+                source.connect(analyser);
+
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+                // Start visualization
+                visualizeAudio();
+
+                // Set up media recorder
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                audioData = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = async () => {
+                    // Stop visualization
+                    cancelAnimationFrame(animationId);
+                    drawEmptyVisualizer();
+
+                    // Create audio blob and URL
+                    audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    audioUrl = URL.createObjectURL(audioBlob);
+
+                    // Create audio element
+                    audioElement = new Audio(audioUrl);
+
+                    // Convert blob to array buffer for processing
+                    const arrayBuffer = await audioBlob.arrayBuffer();
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+                    // Decode audio data
+                    audioContext.decodeAudioData(arrayBuffer, (buffer) => {
+                        // Get audio data as float32array
+                        const audioBuffer = buffer.getChannelData(0);
+
+                        // Use the full audio data without downsampling
+                        audioData = Array.from(audioBuffer);
+
+                        // Enable buttons
+                        playButton.disabled = false;
+                        submitButton.disabled = false;
+
+                        recordStatus.textContent = 'Recording complete! You can play it back or analyze it.';
+                    });
+                };
+
+                // Start recording
+                mediaRecorder.start();
+                recordButton.classList.add('recording');
+                recordStatus.textContent = 'Recording...';
+
+                // Stop recording after duration
+                setTimeout(() => {
+                    if (mediaRecorder.state === 'recording') {
+                        mediaRecorder.stop();
+                        stream.getTracks().forEach(track => track.stop());
+                        recordButton.classList.remove('recording');
+                    }
+                }, recordingDuration);
+
+            } catch (error) {
+                console.error('Error accessing microphone:', error);
+                recordStatus.textContent = 'Error: Could not access microphone. Please check permissions.';
+            }
+        }
+
+        // Record button click handler
+        recordButton.addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                recordButton.classList.remove('recording');
+                recordStatus.textContent = 'Recording stopped';
+            } else {
+                startRecording();
+            }
+        });
+
+        // Play button click handler
+        playButton.addEventListener('click', () => {
+            if (audioElement) {
+                audioElement.play();
+            }
+        });
+
+        // Submit button click handler
+        submitButton.addEventListener('click', async () => {
+            try {
+                // Show result container
+                resultContainer.classList.add('visible');
+                resultMessage.textContent = 'Processing your audio...';
+                probabilityFill.style.width = '0%';
+                probabilityText.textContent = '0%';
+
+                // Disable buttons during processing
+                submitButton.disabled = true;
+                recordButton.classList.add('processing');
+
+                // Send audio data to server
+                const response = await fetch('/process-audio', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        audio_data: audioData
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    // Display result
+                    const probability = result.probability * 100;
+                    resultMessage.textContent = result.message;
+                    probabilityFill.style.width = `${probability}%`;
+                    probabilityText.textContent = `${probability.toFixed(1)}%`;
+
+                    // Add appropriate message based on probability
+                    let feedbackMessage = '';
+                    if (probability > 80) {
+                        feedbackMessage = 'That sounds very much like a whale!';
+                    } else if (probability > 50) {
+                        feedbackMessage = 'There might be whale sounds in your recording.';
+                    } else if (probability > 20) {
+                        feedbackMessage = 'There are some whale-like elements, but it\'s not very clear.';
+                    } else {
+                        feedbackMessage = 'This doesn\'t sound like a whale.';
+                    }
+
+                    // Add information about the sliding window processing
+                    const processingInfo = result.processing_info ?
+                        `<p class="processing-details">Analysis used a sliding window approach to find the highest probability across your audio.</p>` : '';
+
+                    resultMessage.innerHTML = `${result.message} ${feedbackMessage} ${processingInfo}`;
+                } else {
+                    resultMessage.textContent = `Error: ${result.error || 'Something went wrong'}`;
+                }
+            } catch (error) {
+                console.error('Error submitting audio:', error);
+                resultMessage.textContent = 'Error processing audio. Please try again.';
+            } finally {
+                // Re-enable buttons
+                submitButton.disabled = false;
+                recordButton.classList.remove('processing');
+            }
+        });
+    });
+</script>
+{% endblock %}

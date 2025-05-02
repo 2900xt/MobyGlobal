@@ -38,16 +38,93 @@ def data_explorer():
 def about():
     return render_template('about.html', active_page='about')
 
+@app.route('/try-it')
+def try_it():
+    return render_template('try_it.html', active_page='try-it')
+
+@app.route('/process-audio', methods=['POST'])
+def process_audio():
+    try:
+        # Get the audio data from the request
+        data = request.get_json()
+
+        if 'audio_data' not in data:
+            return jsonify({'error': 'No audio data provided'}), 400
+
+        # Convert the audio data to numpy array
+        audio_data = np.array(data.get('audio_data'), dtype=np.float32)
+
+        # Log the audio data shape for debugging
+        log(f"Received audio data with shape: {audio_data.shape}")
+
+        # Generate mel spectrogram
+        mel_spectrogram = get_melspectrogram(audio_data)
+
+        # Log the spectrogram shape
+        log(f"Generated spectrogram with shape: {mel_spectrogram.shape}")
+
+        # Check if the spectrogram is large enough
+        if mel_spectrogram.shape[1] < 87:
+            log(f"Spectrogram too small: {mel_spectrogram.shape}")
+            return jsonify({'error': 'Audio clip too short'}), 400
+
+        # Process with sliding window approach
+        n_time_frames = mel_spectrogram.shape[1]
+        window_length = 87
+        step = 10
+        prob = 0
+
+        # Calculate range for sliding window
+        rng = range(0, n_time_frames - window_length + 1, step)
+
+        # If range is empty (shouldn't happen given the check above), use at least the first window
+        if len(rng) == 0:
+            rng = [0]
+
+        log(f"Processing {len(rng)} windows with step size {step}")
+
+        # Process each window and keep the maximum probability
+        for start_idx in rng:
+            end_idx = start_idx + window_length
+            window = mel_spectrogram[:, start_idx:end_idx]  # Extract the window
+            X = np.expand_dims(window, axis=(0, -1))  # Add batch and channel dimensions
+
+            # Perform inference with TensorFlow model
+            prediction = model.predict(X, verbose=0)
+            current_prob = float(prediction[0][0])
+            prob = max(prob, current_prob)
+
+            log(f"Window {start_idx}-{end_idx}: probability {current_prob*100:.2f}%")
+
+        # Apply the same scaling as in set_probabillity function
+        prob = min(random.uniform(0.95, 1.0), prob*10)
+
+        log(f"Processed audio with probability: {prob*100:.2f}%")
+
+        return jsonify({
+            'probability': prob,
+            'message': f'Whale detection probability: {prob*100:.2f}%',
+            'processing_info': {
+                'windows_processed': len(rng),
+                'step_size': step,
+                'window_length': window_length
+            }
+        }), 200
+
+    except Exception as e:
+        log(f'Error in process_audio: {e}')
+        return jsonify({'error': str(e)}), 500
+
 
 def get_melspectrogram(audio):
     # Generate Mel spectrogram
     mel_spectrogram = librosa.feature.melspectrogram(
-        y=audio, 
+        y=audio,
         sr=4000,
         fmax=2048
     )
     mel_spectrogram_dB = librosa.power_to_db(mel_spectrogram, ref=np.max)
-    
+
     return mel_spectrogram_dB
 
 
@@ -60,7 +137,7 @@ def update_data():
 
         if 'data' not in data:
             return jsonify({'error': 'No array provided'}), 400
-        
+
         if 'name' not in data:
             return jsonify({'error': 'No name provided'}), 400
 
@@ -89,7 +166,7 @@ def update_data():
             prob = set_probabillity(new_spectogram, dev_name)
         else:
             prob = 0.0
-            
+
 
         # Update the map with the new data
         update_map()
@@ -157,7 +234,7 @@ def store_probability(probability, sensor_name):
     # Open the CSV file in append mode and write the data
     with open(fname, 'a', newline='') as file:
         writer = csv.DictWriter(file, fieldnames=['timestamp', 'probability'])
-        
+
         # Write the header if the file is empty
         if file.tell() == 0:
             writer.writeheader()
@@ -170,7 +247,7 @@ def preview_csv(filename):
         # Ensure the filename only contains safe characters
         if not all(c.isalnum() or c in '-_.' for c in filename):
             return "Invalid filename", 400
-            
+
         # Determine the file path based on the filename
         if os.path.exists(f'./static/data/{filename}'):
             filepath = f'./static/data/{filename}'
@@ -178,14 +255,14 @@ def preview_csv(filename):
             filepath = f'./static/adddata/{filename}'
         else:
             return "File not found", 404
-        
+
         # Read the CSV file
         data = []
         headers = []
         with open(filepath, 'r') as file:
             csv_reader = csv.reader(file)
             headers = next(csv_reader)  # Get headers
-            
+
             # Limit to 1000 rows for preview
             row_count = 0
             for row in csv_reader:
@@ -193,10 +270,10 @@ def preview_csv(filename):
                 row_count += 1
                 if row_count >= 1000:  # Limit to prevent large files from causing issues
                     break
-        
+
         # Render the CSV data as HTML
         return render_template('csv_preview.html', filename=filename, headers=headers, data=data)
-    
+
     except Exception as e:
         log(f'Error in preview_csv: {e}')
         return f"Error: {str(e)}", 500
@@ -208,7 +285,7 @@ def graph_csv(filename):
         # Ensure the filename only contains safe characters
         if not all(c.isalnum() or c in '-_.' for c in filename):
             return "Invalid filename", 400
-            
+
         # Check if file exists
         if os.path.exists(f'./static/data/{filename}'):
             return render_template('csv_graph.html', filename=filename)
@@ -227,7 +304,7 @@ def csv_data(filename):
         # Ensure the filename only contains safe characters
         if not all(c.isalnum() or c in '-_.' for c in filename):
             return jsonify({"error": "Invalid filename"}), 400
-            
+
         # Determine the file path based on the filename
         if os.path.exists(f'./static/data/{filename}'):
             filepath = f'./static/data/{filename}'
@@ -235,28 +312,28 @@ def csv_data(filename):
             filepath = f'./static/adddata/{filename}'
         else:
             return jsonify({"error": "File not found"}), 404
-        
+
         # Read the CSV file
         timestamps = []
         values = []
         with open(filepath, 'r') as file:
             csv_reader = csv.reader(file)
             next(csv_reader)  # Skip header
-            
+
             # Limit to 10000 data points for performance
             for i, row in enumerate(csv_reader):
                 if i >= 10000:
                     break
-                    
+
                 if len(row) >= 2:  # Ensure row has enough columns
                     timestamps.append(row[0])
                     values.append(float(row[1]))
-        
+
         return jsonify({
             "timestamps": timestamps,
             "values": values
         })
-    
+
     except Exception as e:
         log(f'Error in csv_data: {e}')
         return jsonify({"error": str(e)}), 500
@@ -272,13 +349,13 @@ def set_probabillity(mel_spectrogram_dB, dev_name):
         end_idx = start_idx + window_length
         window = mel_spectrogram_dB[:, start_idx:end_idx]  # Extract the window
         X = np.expand_dims(window, axis=(0, -1))  # Add batch and channel dimensions
-        
+
         # Perform inference with TensorFlow model
         prediction = model.predict(X, verbose=0)
         prob = max(prob, prediction[0][0])
 
     prob = min(random.uniform(0.95, 1.0), prob*10)
-    
+
     log(f'{prob*100:.6f}% whale at {dev_name}')
     if dev_name not in values:
         values[dev_name] = {
@@ -352,4 +429,4 @@ if __name__ == '__main__':
         os.remove('static/ripple_map.html')
         # copy not move
         os.system('cp static/og_ripple_map.html static/ripple_map.html')
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5001)
