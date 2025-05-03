@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}MobyGlobal - Whale Detection Network{% endblock %}</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&family=Montserrat:wght@700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
             --primary-color: #6200EE;
@@ -187,6 +188,109 @@
             transform: translateY(-3px);
         }
 
+        /* Authentication styles */
+        .auth-links {
+            display: flex;
+            align-items: center;
+        }
+
+        .auth-btn {
+            padding: 8px 16px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: 500;
+            margin-left: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .login-btn {
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+            background-color: transparent;
+        }
+
+        .login-btn:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .register-btn {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .register-btn:hover {
+            background-color: #4a00b8;
+        }
+
+        .user-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .dropdown-btn {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+        }
+
+        .dropdown-btn i {
+            margin-left: 8px;
+        }
+
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            background-color: white;
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            z-index: 1;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .dropdown-content a {
+            color: var(--dark-color);
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            transition: background-color 0.3s;
+        }
+
+        .dropdown-content a:hover {
+            background-color: #f1f1f1;
+        }
+
+        .user-dropdown:hover .dropdown-content {
+            display: block;
+        }
+
+        /* Flash messages */
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 6px;
+        }
+
+        .alert-danger {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
         {% block additional_styles %}{% endblock %}
     </style>
     {% block head_extra %}{% endblock %}
@@ -201,9 +305,37 @@
                 <li><a href="/data" {% if active_page == 'data' %}class="active"{% endif %}>Data Explorer</a></li>
                 <li><a href="/try-it" {% if active_page == 'try-it' %}class="active"{% endif %}>Try It</a></li>
                 <li><a href="/about" {% if active_page == 'about' %}class="active"{% endif %}>About</a></li>
+                {% if current_user.is_authenticated %}
+                <li><a href="/subscriptions" {% if active_page == 'subscriptions' %}class="active"{% endif %}>Subscriptions</a></li>
+                <li><a href="/notifications" {% if active_page == 'notifications' %}class="active"{% endif %}>Notifications</a></li>
+                {% endif %}
             </ul>
+            <div class="auth-links">
+                {% if current_user.is_authenticated %}
+                    <div class="user-dropdown">
+                        <button class="dropdown-btn">{{ current_user.username }} <i class="fas fa-caret-down"></i></button>
+                        <div class="dropdown-content">
+                            <a href="/profile">Profile</a>
+                            <a href="/logout">Logout</a>
+                        </div>
+                    </div>
+                {% else %}
+                    <a href="/login" class="auth-btn login-btn">Login</a>
+                    <a href="/register" class="auth-btn register-btn">Register</a>
+                {% endif %}
+            </div>
         </div>
     </nav>
+
+    <div class="container" style="padding-top: 10px;">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
 
     {% block content %}{% endblock %}
 

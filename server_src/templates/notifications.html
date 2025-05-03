@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}Notifications - MobyGlobal{% endblock %}
+
+{% block additional_styles %}
+.notifications-container {
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    padding: 30px;
+    margin-bottom: 30px;
+}
+
+.notifications-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.notifications-header h2 {
+    margin: 0;
+    color: var(--dark-color);
+}
+
+.notification-list {
+    margin-top: 20px;
+}
+
+.notification-item {
+    padding: 20px;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.3s;
+}
+
+.notification-item:hover {
+    background-color: #f9f9f9;
+}
+
+.notification-item:last-child {
+    border-bottom: none;
+}
+
+.notification-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.notification-title {
+    font-weight: 600;
+    font-size: 18px;
+    color: var(--dark-color);
+}
+
+.notification-time {
+    color: #999;
+    font-size: 14px;
+}
+
+.notification-message {
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.notification-source {
+    font-size: 14px;
+    color: #888;
+}
+
+.notification-unread {
+    background-color: #f0f7ff;
+}
+
+.notification-unread .notification-title {
+    color: var(--primary-color);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 50px 20px;
+    color: #999;
+}
+
+.empty-state p {
+    margin-bottom: 20px;
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    margin-top: 30px;
+}
+
+.pagination-item {
+    margin: 0 5px;
+}
+
+.pagination-link {
+    display: block;
+    padding: 8px 12px;
+    border-radius: 4px;
+    text-decoration: none;
+    color: var(--dark-color);
+    transition: all 0.3s;
+}
+
+.pagination-link:hover {
+    background-color: #f0f0f0;
+}
+
+.pagination-link.active {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.pagination-link.disabled {
+    color: #ccc;
+    cursor: not-allowed;
+}
+
+.pagination-link.disabled:hover {
+    background-color: transparent;
+}
+
+.btn-mark-all-read {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+.btn-mark-all-read:hover {
+    background-color: #4a00b8;
+}
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <header>
+        <h1>Your Notifications</h1>
+    </header>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <div class="notifications-container">
+        <div class="notifications-header">
+            <h2>All Notifications</h2>
+        </div>
+        
+        {% if notifications %}
+            <div class="notification-list">
+                {% for notification in notifications %}
+                    <div class="notification-item {% if not notification.read %}notification-unread{% endif %}">
+                        <div class="notification-header">
+                            <div class="notification-title">{{ notification.title }}</div>
+                            <div class="notification-time">{{ notification.created_at.strftime('%B %d, %Y at %H:%M') }}</div>
+                        </div>
+                        <div class="notification-message">{{ notification.message }}</div>
+                        <div class="notification-source">
+                            {% if notification.region %}
+                                From region: {{ notification.region.name }}
+                            {% elif notification.sensor %}
+                                From sensor: {{ notification.sensor.name }}
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            
+            {% if pagination.pages > 1 %}
+                <div class="pagination">
+                    {% if pagination.has_prev %}
+                        <div class="pagination-item">
+                            <a href="{{ url_for('notifications', page=pagination.prev_num) }}" class="pagination-link">Previous</a>
+                        </div>
+                    {% else %}
+                        <div class="pagination-item">
+                            <span class="pagination-link disabled">Previous</span>
+                        </div>
+                    {% endif %}
+                    
+                    {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if page_num %}
+                            <div class="pagination-item">
+                                {% if page_num == pagination.page %}
+                                    <span class="pagination-link active">{{ page_num }}</span>
+                                {% else %}
+                                    <a href="{{ url_for('notifications', page=page_num) }}" class="pagination-link">{{ page_num }}</a>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <div class="pagination-item">
+                                <span class="pagination-link disabled">...</span>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if pagination.has_next %}
+                        <div class="pagination-item">
+                            <a href="{{ url_for('notifications', page=pagination.next_num) }}" class="pagination-link">Next</a>
+                        </div>
+                    {% else %}
+                        <div class="pagination-item">
+                            <span class="pagination-link disabled">Next</span>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <p>You don't have any notifications yet.</p>
+                <p>Subscribe to regions or sensors to receive alerts when whales are detected.</p>
+                <a href="{{ url_for('subscriptions') }}" class="btn-subscribe">Manage Subscriptions</a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

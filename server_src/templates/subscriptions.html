@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+
+{% block title %}Subscriptions - MobyGlobal{% endblock %}
+
+{% block additional_styles %}
+.subscription-container {
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    padding: 30px;
+    margin-bottom: 30px;
+}
+
+.subscription-section {
+    margin-bottom: 40px;
+}
+
+.subscription-section h2 {
+    margin-bottom: 20px;
+    color: var(--dark-color);
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 10px;
+}
+
+.subscription-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.subscription-card {
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.subscription-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+}
+
+.subscription-card h3 {
+    margin-top: 0;
+    color: var(--primary-color);
+}
+
+.subscription-card p {
+    margin-bottom: 15px;
+    color: #666;
+}
+
+.subscription-card .location {
+    font-size: 14px;
+    color: #888;
+    margin-bottom: 20px;
+}
+
+.subscription-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.btn-subscribe {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+.btn-subscribe:hover {
+    background-color: #4a00b8;
+}
+
+.btn-subscribed {
+    background-color: #d4edda;
+    color: #155724;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: not-allowed;
+}
+
+.current-subscriptions {
+    margin-bottom: 30px;
+}
+
+.current-subscriptions h3 {
+    margin-bottom: 15px;
+    color: var(--dark-color);
+}
+
+.subscription-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.subscription-tag {
+    background-color: #e9ecef;
+    color: #495057;
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+}
+
+.subscription-tag .remove {
+    margin-left: 5px;
+    color: #dc3545;
+    cursor: pointer;
+}
+
+.subscription-tag .remove:hover {
+    color: #bd2130;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 20px;
+    color: #999;
+}
+
+.alert {
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 6px;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+}
+
+.tabs {
+    display: flex;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #ddd;
+}
+
+.tab {
+    padding: 10px 20px;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s;
+}
+
+.tab.active {
+    border-bottom-color: var(--primary-color);
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <header>
+        <h1>Manage Subscriptions</h1>
+    </header>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <div class="subscription-container">
+        <div class="current-subscriptions">
+            <h3>Your Current Subscriptions</h3>
+            
+            {% if subscriptions %}
+                <div class="subscription-list">
+                    {% for subscription in subscriptions %}
+                        <div class="subscription-tag">
+                            {% if subscription.region %}
+                                {{ subscription.region.name }} (Region)
+                            {% elif subscription.sensor %}
+                                {{ subscription.sensor.name }} (Sensor)
+                            {% endif %}
+                            <form method="POST" action="{{ url_for('unsubscribe') }}" style="display: inline;">
+                                <input type="hidden" name="subscription_id" value="{{ subscription.id }}">
+                                <button type="submit" class="remove" title="Unsubscribe">×</button>
+                            </form>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <p>You don't have any subscriptions yet.</p>
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="tabs">
+            <div class="tab active" data-tab="regions">Regions</div>
+            <div class="tab" data-tab="sensors">Sensors</div>
+        </div>
+        
+        <div class="tab-content active" id="regions-tab">
+            <div class="subscription-section">
+                <h2>Available Regions</h2>
+                <p>Subscribe to receive notifications when whales are detected in these regions.</p>
+                
+                <div class="subscription-grid">
+                    {% for region in regions %}
+                        <div class="subscription-card">
+                            <h3>{{ region.name }}</h3>
+                            <p>{{ region.description }}</p>
+                            <div class="location">Center: {{ region.center_lat }}, {{ region.center_lng }}</div>
+                            
+                            {% set is_subscribed = false %}
+                            {% for sub in subscriptions %}
+                                {% if sub.region_id == region.id %}
+                                    {% set is_subscribed = true %}
+                                {% endif %}
+                            {% endfor %}
+                            
+                            <div class="subscription-actions">
+                                {% if is_subscribed %}
+                                    <button class="btn-subscribed" disabled>Subscribed</button>
+                                {% else %}
+                                    <form method="POST" action="{{ url_for('subscribe') }}">
+                                        <input type="hidden" name="type" value="region">
+                                        <input type="hidden" name="id" value="{{ region.id }}">
+                                        <button type="submit" class="btn-subscribe">Subscribe</button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="sensors-tab">
+            <div class="subscription-section">
+                <h2>Available Sensors</h2>
+                <p>Subscribe to receive notifications from specific sensors when they detect whales.</p>
+                
+                <div class="subscription-grid">
+                    {% for sensor in sensors %}
+                        <div class="subscription-card">
+                            <h3>{{ sensor.name }}</h3>
+                            <p>Location: {{ sensor.location }}</p>
+                            {% if sensor.region %}
+                                <p>Region: {{ sensor.region.name }}</p>
+                            {% endif %}
+                            
+                            {% set is_subscribed = false %}
+                            {% for sub in subscriptions %}
+                                {% if sub.sensor_id == sensor.id %}
+                                    {% set is_subscribed = true %}
+                                {% endif %}
+                            {% endfor %}
+                            
+                            <div class="subscription-actions">
+                                {% if is_subscribed %}
+                                    <button class="btn-subscribed" disabled>Subscribed</button>
+                                {% else %}
+                                    <form method="POST" action="{{ url_for('subscribe') }}">
+                                        <input type="hidden" name="type" value="sensor">
+                                        <input type="hidden" name="id" value="{{ sensor.id }}">
+                                        <button type="submit" class="btn-subscribe">Subscribe</button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        tabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                // Remove active class from all tabs and contents
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+                
+                // Add active class to clicked tab
+                this.classList.add('active');
+                
+                // Show corresponding content
+                const tabId = this.getAttribute('data-tab');
+                document.getElementById(`${tabId}-tab`).classList.add('active');
+            });
+        });
+    });
+</script>
+{% endblock %}

@@ -1,7 +1,7 @@
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, url_for, flash
 import folium
 import numpy as np
 import json
@@ -13,10 +13,28 @@ from tensorflow.keras.models import load_model
 import random
 import requests
 import librosa
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
+import math
+from models import db, User, Region, Sensor, Subscription, Notification
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-for-testing')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///mobyglobal.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Initialize extensions
+db.init_app(app)
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
 values = dict()
 spectrograms = dict()
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 def log(msg):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -41,6 +59,200 @@ def about():
 @app.route('/try-it')
 def try_it():
     return render_template('try_it.html', active_page='try-it')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+
+        # Validate form data
+        if not username or not email or not password:
+            flash('All fields are required', 'danger')
+            return render_template('register.html', active_page='register')
+
+        if password != confirm_password:
+            flash('Passwords do not match', 'danger')
+            return render_template('register.html', active_page='register')
+
+        # Check if username or email already exists
+        if User.query.filter_by(username=username).first():
+            flash('Username already exists', 'danger')
+            return render_template('register.html', active_page='register')
+
+        if User.query.filter_by(email=email).first():
+            flash('Email already exists', 'danger')
+            return render_template('register.html', active_page='register')
+
+        # Create new user
+        user = User(username=username, email=email)
+        user.set_password(password)
+
+        db.session.add(user)
+        db.session.commit()
+
+        flash('Registration successful! You can now log in.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('register.html', active_page='register')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        remember = 'remember' in request.form
+
+        user = User.query.filter_by(username=username).first()
+
+        if user and user.check_password(password):
+            login_user(user, remember=remember)
+            next_page = request.args.get('next')
+            return redirect(next_page or url_for('index'))
+        else:
+            flash('Invalid username or password', 'danger')
+
+    return render_template('login.html', active_page='login')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('You have been logged out', 'info')
+    return redirect(url_for('index'))
+
+@app.route('/profile')
+@login_required
+def profile():
+    # Get user's subscriptions
+    subscriptions = Subscription.query.filter_by(user_id=current_user.id).all()
+
+    # Get user's notifications
+    notifications = Notification.query.filter_by(user_id=current_user.id).order_by(Notification.created_at.desc()).limit(10).all()
+
+    # Count unread notifications
+    unread_count = Notification.query.filter_by(user_id=current_user.id, read=False).count()
+
+    # Get available regions for subscription
+    regions = Region.query.all()
+
+    # Get available sensors for subscription
+    sensors = Sensor.query.all()
+
+    return render_template('profile.html',
+                          active_page='profile',
+                          subscriptions=subscriptions,
+                          notifications=notifications,
+                          unread_count=unread_count,
+                          regions=regions,
+                          sensors=sensors)
+
+@app.route('/subscriptions')
+@login_required
+def subscriptions():
+    # Get user's subscriptions
+    user_subscriptions = Subscription.query.filter_by(user_id=current_user.id).all()
+
+    # Get available regions for subscription
+    regions = Region.query.all()
+
+    # Get available sensors for subscription
+    sensors = Sensor.query.all()
+
+    return render_template('subscriptions.html',
+                          active_page='subscriptions',
+                          subscriptions=user_subscriptions,
+                          regions=regions,
+                          sensors=sensors)
+
+@app.route('/subscribe', methods=['POST'])
+@login_required
+def subscribe():
+    subscription_type = request.form.get('type')
+    item_id = request.form.get('id')
+
+    if not subscription_type or not item_id:
+        flash('Invalid subscription request', 'danger')
+        return redirect(url_for('subscriptions'))
+
+    # Check if already subscribed
+    if subscription_type == 'region':
+        existing = Subscription.query.filter_by(user_id=current_user.id, region_id=item_id).first()
+        if not existing:
+            subscription = Subscription(user_id=current_user.id, region_id=item_id)
+            db.session.add(subscription)
+            region = Region.query.get(item_id)
+            flash(f'Subscribed to {region.name} region', 'success')
+    elif subscription_type == 'sensor':
+        existing = Subscription.query.filter_by(user_id=current_user.id, sensor_id=item_id).first()
+        if not existing:
+            subscription = Subscription(user_id=current_user.id, sensor_id=item_id)
+            db.session.add(subscription)
+            sensor = Sensor.query.get(item_id)
+            flash(f'Subscribed to {sensor.name} sensor', 'success')
+
+    db.session.commit()
+    return redirect(url_for('subscriptions'))
+
+@app.route('/unsubscribe', methods=['POST'])
+@login_required
+def unsubscribe():
+    subscription_id = request.form.get('subscription_id')
+
+    if not subscription_id:
+        flash('Invalid unsubscribe request', 'danger')
+        return redirect(url_for('subscriptions'))
+
+    subscription = Subscription.query.get(subscription_id)
+
+    if subscription and subscription.user_id == current_user.id:
+        db.session.delete(subscription)
+        db.session.commit()
+        flash('Unsubscribed successfully', 'success')
+
+    return redirect(url_for('subscriptions'))
+
+@app.route('/notifications')
+@login_required
+def notifications():
+    page = request.args.get('page', 1, type=int)
+    per_page = 20
+
+    # Get user's notifications with pagination
+    pagination = Notification.query.filter_by(user_id=current_user.id).order_by(
+        Notification.created_at.desc()
+    ).paginate(page=page, per_page=per_page)
+
+    # Mark all as read
+    unread = Notification.query.filter_by(user_id=current_user.id, read=False).all()
+    for notification in unread:
+        notification.read = True
+
+    db.session.commit()
+
+    return render_template('notifications.html',
+                          active_page='notifications',
+                          notifications=pagination.items,
+                          pagination=pagination)
+
+@app.route('/mark_notification_read/<int:notification_id>')
+@login_required
+def mark_notification_read(notification_id):
+    notification = Notification.query.get(notification_id)
+
+    if notification and notification.user_id == current_user.id:
+        notification.read = True
+        db.session.commit()
+
+    return redirect(url_for('notifications'))
 
 @app.route('/process-audio', methods=['POST'])
 def process_audio():
@@ -184,25 +396,98 @@ def register_sensor():
         data = request.get_json()
         dev_name = str(data.get('name'))
         dev_loc = str(data.get('location'))
-        values[dev_name] = {
-            'name' : dev_name,
-            'prob' : 0.0,
-            'location' : dev_loc,
-            'last_upd' : datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        }
-        log(f'Register Data: {data}')
 
         if dev_name == "None":
             return jsonify({'error': 'Invalid Name'}), 400
 
-
         if dev_loc == "None":
             return jsonify({'error': 'Invalid Location'}), 400
 
+        # Store in the values dictionary for backward compatibility
+        values[dev_name] = {
+            'name': dev_name,
+            'prob': 0.0,
+            'location': dev_loc,
+            'last_upd': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        log(f'Register Data: {data}')
+
+        # Check if sensor already exists in the database
+        sensor = Sensor.query.filter_by(name=dev_name).first()
+
+        if not sensor:
+            # Parse location string to get latitude and longitude
+            try:
+                lat, lng = map(float, dev_loc.split(','))
+
+                # Find the region this sensor belongs to
+                region = None
+                for r in Region.query.all():
+                    # Calculate distance between sensor and region center
+                    distance = calculate_distance(lat, lng, r.center_lat, r.center_lng)
+                    if distance <= r.radius:
+                        region = r
+                        break
+
+                # Create new sensor in database
+                sensor = Sensor(
+                    name=dev_name,
+                    location=dev_loc,
+                    region_id=region.id if region else None,
+                    last_updated=datetime.now()
+                )
+                db.session.add(sensor)
+                db.session.commit()
+
+                # If sensor is in a region, notify subscribers
+                if region:
+                    notify_region_subscribers(region.id, f"New sensor '{dev_name}' added to {region.name}")
+            except Exception as e:
+                log(f"Error processing sensor location: {e}")
 
         return jsonify({'message': 'Sensor Registered Successfully'}), 200
-    except Exception:
+    except Exception as e:
+        log(f"Error in register_sensor: {e}")
         return jsonify({'error': 'Invalid Query'}), 400
+
+def calculate_distance(lat1, lon1, lat2, lon2):
+    """Calculate distance between two points in kilometers using the Haversine formula"""
+    # Convert latitude and longitude from degrees to radians
+    lat1 = math.radians(lat1)
+    lon1 = math.radians(lon1)
+    lat2 = math.radians(lat2)
+    lon2 = math.radians(lon2)
+
+    # Haversine formula
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+    c = 2 * math.asin(math.sqrt(a))
+    r = 6371  # Radius of earth in kilometers
+
+    return c * r
+
+def notify_region_subscribers(region_id, message):
+    """Send notifications to all users subscribed to a region"""
+    # Find all users subscribed to this region
+    subscriptions = Subscription.query.filter_by(region_id=region_id).all()
+
+    region = Region.query.get(region_id)
+    if not region:
+        return
+
+    for subscription in subscriptions:
+        # Create notification for each subscribed user
+        notification = Notification(
+            user_id=subscription.user_id,
+            title=f"Update from {region.name}",
+            message=message,
+            region_id=region_id,
+            created_at=datetime.now()
+        )
+        db.session.add(notification)
+
+    db.session.commit()
 
 
 @app.route('/unregister', methods=['POST'])
@@ -339,10 +624,8 @@ def csv_data(filename):
         return jsonify({"error": str(e)}), 500
 
 def set_probabillity(mel_spectrogram_dB, dev_name):
-    n_time_frames = mel_spectrogram_dB.shape[1]
     window_length = 87
     prob = 0
-    step = 3
     rng = [0]
 
     for start_idx in rng:
@@ -357,18 +640,70 @@ def set_probabillity(mel_spectrogram_dB, dev_name):
     prob = min(random.uniform(0.95, 1.0), prob*10)
 
     log(f'{prob*100:.6f}% whale at {dev_name}')
+
+    # Get previous probability if it exists
+    prev_prob = 0
+    if dev_name in values:
+        prev_prob = values[dev_name]['prob']
+
+    # Create sensor entry if it doesn't exist
     if dev_name not in values:
         values[dev_name] = {
-            'name' : dev_name,
-            'prob' : prob,
-            'location' : "0,0",
-            'last_upd' : datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            'name': dev_name,
+            'prob': prob,
+            'location': "0,0",
+            'last_upd': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
 
+    # Update probability and timestamp
     values[dev_name]['prob'] = max(prob, values[dev_name]['prob']*0.8)
     values[dev_name]['last_upd'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Store probability in CSV
     store_probability(float(prob), dev_name)
+
+    # Check if this is a significant whale detection (probability > 0.5)
+    # and if it's a new detection or significantly higher than before
+    if prob > 0.5 and (prev_prob < 0.3 or prob > prev_prob * 1.5):
+        # Find the sensor in the database
+        sensor = Sensor.query.filter_by(name=dev_name).first()
+
+        if sensor:
+            # Notify users subscribed to this specific sensor
+            notify_sensor_subscribers(sensor.id, f"High whale detection probability ({prob*100:.1f}%) at {dev_name}")
+
+            # If sensor is in a region, notify region subscribers too
+            if sensor.region_id:
+                region = Region.query.get(sensor.region_id)
+                if region:
+                    notify_region_subscribers(
+                        region.id,
+                        f"High whale detection probability ({prob*100:.1f}%) at {dev_name} in {region.name}"
+                    )
+
     return prob
+
+def notify_sensor_subscribers(sensor_id, message):
+    """Send notifications to all users subscribed to a specific sensor"""
+    # Find all users subscribed to this sensor
+    subscriptions = Subscription.query.filter_by(sensor_id=sensor_id).all()
+
+    sensor = Sensor.query.get(sensor_id)
+    if not sensor:
+        return
+
+    for subscription in subscriptions:
+        # Create notification for each subscribed user
+        notification = Notification(
+            user_id=subscription.user_id,
+            title=f"Alert from {sensor.name}",
+            message=message,
+            sensor_id=sensor_id,
+            created_at=datetime.now()
+        )
+        db.session.add(notification)
+
+    db.session.commit()
 
 
 @app.route('/update_map')
@@ -420,13 +755,114 @@ def update_map():
     map_path = 'static/ripple_map.html'
     map.save(map_path)
 
+def init_db():
+    """Initialize the database with default regions if they don't exist"""
+    with app.app_context():
+        # Create all tables
+        db.create_all()
+
+        # Check if we need to add default regions
+        if Region.query.count() == 0:
+            # Add some default regions
+            default_regions = [
+                {
+                    'name': 'North Atlantic',
+                    'description': 'North Atlantic Ocean region',
+                    'center_lat': 45.0,
+                    'center_lng': -40.0,
+                    'radius': 2000.0
+                },
+                {
+                    'name': 'North Pacific',
+                    'description': 'North Pacific Ocean region',
+                    'center_lat': 40.0,
+                    'center_lng': -150.0,
+                    'radius': 2000.0
+                },
+                {
+                    'name': 'South Pacific',
+                    'description': 'South Pacific Ocean region',
+                    'center_lat': -20.0,
+                    'center_lng': -120.0,
+                    'radius': 2000.0
+                },
+                {
+                    'name': 'Indian Ocean',
+                    'description': 'Indian Ocean region',
+                    'center_lat': -10.0,
+                    'center_lng': 80.0,
+                    'radius': 2000.0
+                },
+                {
+                    'name': 'Arctic',
+                    'description': 'Arctic Ocean region',
+                    'center_lat': 80.0,
+                    'center_lng': 0.0,
+                    'radius': 1500.0
+                },
+                {
+                    'name': 'Southern Ocean',
+                    'description': 'Southern Ocean around Antarctica',
+                    'center_lat': -70.0,
+                    'center_lng': 0.0,
+                    'radius': 2000.0
+                }
+            ]
+
+            for region_data in default_regions:
+                region = Region(**region_data)
+                db.session.add(region)
+
+            db.session.commit()
+            log("Added default regions to database")
+
+        # Import existing sensors into the database
+        if Sensor.query.count() == 0 and values:
+            for sensor_name, sensor_data in values.items():
+                # Check if sensor already exists
+                if not Sensor.query.filter_by(name=sensor_name).first():
+                    try:
+                        location = sensor_data.get('location', '0,0')
+
+                        # Try to find the region this sensor belongs to
+                        region_id = None
+                        try:
+                            lat, lng = map(float, location.split(','))
+
+                            for region in Region.query.all():
+                                distance = calculate_distance(lat, lng, region.center_lat, region.center_lng)
+                                if distance <= region.radius:
+                                    region_id = region.id
+                                    break
+                        except:
+                            pass
+
+                        # Create the sensor
+                        sensor = Sensor(
+                            name=sensor_name,
+                            location=location,
+                            region_id=region_id,
+                            last_updated=datetime.now()
+                        )
+                        db.session.add(sensor)
+                    except Exception as e:
+                        log(f"Error importing sensor {sensor_name}: {e}")
+
+            db.session.commit()
+            log("Imported existing sensors to database")
+
 if __name__ == '__main__':
     model_path = '../whale_detector/Moby5.h5'
     model = load_model(model_path)
     log(f"Using Moby5.h5")
-    # copy and override /static/ripple_map.html with /static/og_ripple_map.html
+
+    # Initialize the database
+    init_db()
+
+    # Copy and override /static/ripple_map.html with /static/og_ripple_map.html
     if os.path.exists('static/og_ripple_map.html'):
         os.remove('static/ripple_map.html')
         # copy not move
         os.system('cp static/og_ripple_map.html static/ripple_map.html')
-    app.run(debug=True, host='0.0.0.0', port=5001)
+
+    app.run(debug=True, host='0.0.0.0', port=5002)
