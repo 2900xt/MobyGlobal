@@ -2,6 +2,7 @@ import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, url_for, flash
+from werkzeug.utils import secure_filename
 import folium
 import numpy as np
 import json
@@ -22,6 +23,9 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-for-testing')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///mobyglobal.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static/uploads')
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload size
+app.config['ALLOWED_EXTENSIONS'] = {'wav'}
 
 # Initialize extensions
 db.init_app(app)
@@ -254,23 +258,18 @@ def mark_notification_read(notification_id):
 
     return redirect(url_for('notifications'))
 
-@app.route('/process-audio', methods=['POST'])
-def process_audio():
+def allowed_file(filename):
+    """Check if the file has an allowed extension"""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+
+def process_audio_data(audio_data, source="browser", sample_rate=4000):
+    """Process audio data and return whale detection probability"""
     try:
-        # Get the audio data from the request
-        data = request.get_json()
-
-        if 'audio_data' not in data:
-            return jsonify({'error': 'No audio data provided'}), 400
-
-        # Convert the audio data to numpy array
-        audio_data = np.array(data.get('audio_data'), dtype=np.float32)
-
         # Log the audio data shape for debugging
-        log(f"Received audio data with shape: {audio_data.shape}")
+        log(f"Received audio data with shape: {audio_data.shape} from {source} with sample rate {sample_rate} Hz")
 
-        # Generate mel spectrogram
-        mel_spectrogram = get_melspectrogram(audio_data)
+        # Generate mel spectrogram with the provided sample rate
+        mel_spectrogram = get_melspectrogram(audio_data, sample_rate=sample_rate)
 
         # Log the spectrogram shape
         log(f"Generated spectrogram with shape: {mel_spectrogram.shape}")
@@ -278,7 +277,7 @@ def process_audio():
         # Check if the spectrogram is large enough
         if mel_spectrogram.shape[1] < 87:
             log(f"Spectrogram too small: {mel_spectrogram.shape}")
-            return jsonify({'error': 'Audio clip too short'}), 400
+            return None, 'Audio clip too short'
 
         # Process with sliding window approach
         n_time_frames = mel_spectrogram.shape[1]
@@ -313,7 +312,7 @@ def process_audio():
 
         log(f"Processed audio with probability: {prob*100:.2f}%")
 
-        return jsonify({
+        return {
             'probability': prob,
             'message': f'Whale detection probability: {prob*100:.2f}%',
             'processing_info': {
@@ -321,19 +320,96 @@ def process_audio():
                 'step_size': step,
                 'window_length': window_length
             }
-        }), 200
+        }, None
+    except Exception as e:
+        log(f'Error processing audio: {e}')
+        return None, str(e)
+
+@app.route('/process-audio', methods=['POST'])
+def process_audio():
+    try:
+        # Get the audio data from the request
+        data = request.get_json()
+
+        if 'audio_data' not in data:
+            return jsonify({'error': 'No audio data provided'}), 400
+
+        # Convert the audio data to numpy array
+        audio_data = np.array(data.get('audio_data'), dtype=np.float32)
+
+        # Process the audio data
+        result, error = process_audio_data(audio_data, source="browser")
+
+        if error:
+            return jsonify({'error': error}), 400
+
+        return jsonify(result), 200
 
     except Exception as e:
         log(f'Error in process_audio: {e}')
         return jsonify({'error': str(e)}), 500
 
+@app.route('/process-audio-file', methods=['POST'])
+def process_audio_file():
+    try:
+        # Check if the post request has the file part
+        if 'audio_file' not in request.files:
+            return jsonify({'error': 'No file part'}), 400
 
-def get_melspectrogram(audio):
+        file = request.files['audio_file']
+
+        # If user does not select file, browser also submits an empty part without filename
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+
+            # Create uploads directory if it doesn't exist
+            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+            # Save the file
+            file.save(filepath)
+
+            log(f"Saved uploaded file to {filepath}")
+
+            try:
+                # Load the audio file using librosa without downsampling (sr=None)
+                audio_data, sample_rate = librosa.load(filepath, sr=None)
+
+                log(f"Loaded audio file with sample rate: {sample_rate} Hz")
+
+                # Process the audio data
+                result, error = process_audio_data(audio_data, source="file_upload", sample_rate=sample_rate)
+
+                if error:
+                    return jsonify({'error': error}), 400
+
+                return jsonify(result), 200
+
+            except Exception as e:
+                log(f"Error processing audio file: {e}")
+                return jsonify({'error': f'Error processing audio file: {str(e)}'}), 500
+            finally:
+                # Clean up - remove the uploaded file
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+        else:
+            return jsonify({'error': 'File type not allowed. Please upload a WAV file.'}), 400
+
+    except Exception as e:
+        log(f'Error in process_audio_file: {e}')
+        return jsonify({'error': str(e)}), 500
+
+
+def get_melspectrogram(audio, sample_rate=4000):
     # Generate Mel spectrogram
     mel_spectrogram = librosa.feature.melspectrogram(
         y=audio,
-        sr=4000,
-        fmax=2048
+        sr=sample_rate,
+        n_mels=128,  # Keep consistent mel bands
+        fmax=min(sample_rate/2, 2048)  # Adjust fmax based on sample rate (Nyquist frequency)
     )
     mel_spectrogram_dB = librosa.power_to_db(mel_spectrogram, ref=np.max)
 

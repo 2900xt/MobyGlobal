@@ -5,11 +5,18 @@
 {% block additional_styles %}
 .auth-container {
     max-width: 500px;
-    margin: 40px auto;
+    margin: 50px auto;
     background-color: white;
     border-radius: 12px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.08);
     padding: 30px;
+}
+
+/* Add this to ensure the form is properly centered */
+form {
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
 }
 
 .auth-container h1 {
@@ -25,7 +32,7 @@
 .form-group label {
     display: block;
     margin-bottom: 8px;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--dark-color);
 }
 
@@ -36,6 +43,7 @@
     border-radius: 6px;
     font-size: 16px;
     transition: border-color 0.3s;
+    box-sizing: border-box; /* Add this to fix the centering issue */
 }
 
 .form-control:focus {
@@ -51,7 +59,7 @@
     border: none;
     border-radius: 6px;
     font-size: 16px;
-    font-weight: 600;
+    font-weight: 500;
     cursor: pointer;
     transition: background-color 0.3s;
 }
@@ -75,22 +83,10 @@
     text-decoration: underline;
 }
 
-.alert {
-    padding: 15px;
-    margin-bottom: 20px;
-    border-radius: 6px;
-}
-
-.alert-danger {
-    background-color: #f8d7da;
-    border: 1px solid #f5c6cb;
-    color: #721c24;
-}
-
-.alert-success {
-    background-color: #d4edda;
-    border: 1px solid #c3e6cb;
-    color: #155724;
+.invalid-feedback {
+    color: #dc3545;
+    font-size: 14px;
+    margin-top: 5px;
 }
 {% endblock %}
 
@@ -98,41 +94,33 @@
 <div class="container">
     <div class="auth-container">
         <h1>Create an Account</h1>
-        
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-        
+
         <form method="POST" action="{{ url_for('register') }}">
             <div class="form-group">
                 <label for="username">Username</label>
                 <input type="text" class="form-control" id="username" name="username" required>
             </div>
-            
+
             <div class="form-group">
                 <label for="email">Email</label>
                 <input type="email" class="form-control" id="email" name="email" required>
             </div>
-            
+
             <div class="form-group">
                 <label for="password">Password</label>
                 <input type="password" class="form-control" id="password" name="password" required>
             </div>
-            
+
             <div class="form-group">
                 <label for="confirm_password">Confirm Password</label>
                 <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
             </div>
-            
+
             <button type="submit" class="btn-auth">Register</button>
         </form>
-        
+
         <div class="auth-footer">
-            <p>Already have an account? <a href="{{ url_for('login') }}">Login here</a></p>
+            <p>Already have an account? <a href="{{ url_for('login') }}">Log in</a></p>
         </div>
     </div>
 </div>
