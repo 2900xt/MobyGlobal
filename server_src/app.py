@@ -941,4 +941,4 @@ if __name__ == '__main__':
         # copy not move
         os.system('cp static/og_ripple_map.html static/ripple_map.html')
 
-    app.run(debug=True, host='0.0.0.0', port=5002)
+    app.run(debug=True, host='0.0.0.0', port=5000)
