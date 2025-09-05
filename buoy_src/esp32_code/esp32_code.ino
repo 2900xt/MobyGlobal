@@ -9,7 +9,6 @@ WiFiMulti wifiMulti;
 HTTPClient http;
 
 const char *wifi_ssid = "Verizon_T6YMSZ";
-const char *wifi_passwd = "ripe9-gram-tag";
 const char *server_ip = "http://192.168.1.85:5000/";
 
 const String dev_name = "moby_buoy_1";
