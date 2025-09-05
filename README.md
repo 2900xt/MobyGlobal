@@ -1,4 +1,4 @@
-My and @mallhw's project for ISEF 2025.
+# Mobyglobal: A real-time whale detection network.
 
 [Project Board](https://isef.net/project/robo046t-mobyglobal-a-real-time-whale-detection-network)  
   
