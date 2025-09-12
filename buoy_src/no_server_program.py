@@ -31,7 +31,6 @@ def get_microphone_melspectrogram(duration, sampling_rate):
     return mel_spectrogram_dB, sampling_rate
 
 def log(msg):
-
     timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"[{timestamp}] {msg}")
 
@@ -65,7 +64,6 @@ def process_audio_thread():
                 prediction = model.predict(X, verbose=0)
                 prob = max(prob, prediction[0][0])
                     
-
             if prob > 0.5:
                 log(f'Whale Detected!')
 
@@ -77,7 +75,7 @@ def process_audio_thread():
 while True:
     log('Whale Audio Detector 0.2')
 
-    model_path = '/home/taha/rsef2025/whale_detector/Moby5.h5'
+    model_path = '/home/taha/Code/MobyGlobal/Moby_src/Moby5.h5'
     model = load_model(model_path)
     log(f"Using Moby5.h5")
 
@@ -97,11 +95,11 @@ while True:
                 old_spectogram = new_spectogram
             data_queue.put(mel_spectrogram_dB, timeout=1)
     except:
-        throw
         stop_flag.set()
         log('Recording thread error')
 
     log('Killing Threads')
+    stop_flag.set()
     process_thread1.join()
     log('All threads stopped')
     exit()
